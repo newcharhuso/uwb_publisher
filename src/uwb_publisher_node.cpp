@@ -1,105 +1,48 @@
-#include <iostream>
-#include <thread>
-#include <atomic>
-#include <chrono>
-#include <cstring>
-#include <fcntl.h>
-#include <unistd.h>
-#include <termios.h>
-#include <sys/ioctl.h>
-#include <sys/select.h>
-#include <sys/time.h>
+#include <libserial/SerialPort.h>
 #include "rclcpp/rclcpp.hpp"
 #include <std_msgs/msg/string.hpp>
+#include <memory>
+#include <algorithm>
 
 class UWBPublisher : public rclcpp::Node {
 public:
-    UWBPublisher() : Node("uwb_publisher"), publisher_(nullptr), serial_fd_(-1), thread_stop_(false) {
-        this->declare_parameter<std::string>("serial_port", "/dev/ttyUSB0");
+    UWBPublisher() : Node("uwb_publisher"), serial_port("/dev/ttyUSB0"), publisher_(nullptr) {
         this->declare_parameter<int>("baud_rate", 115200);
-
-        std::string serial_port = this->get_parameter("serial_port").as_string();
         int baud_rate = this->get_parameter("baud_rate").as_int();
 
-        // Open serial port
-        serial_fd_ = open(serial_port.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
-        if (serial_fd_ == -1) {
-            std::cerr << "Failed to open serial port" << std::endl;
-            return;
-        }
-
-        // Configure serial port
-        struct termios tty;
-        memset(&tty, 0, sizeof(tty));
-        if (tcgetattr(serial_fd_, &tty) != 0) {
-            std::cerr << "Error in tcgetattr" << std::endl;
-            close(serial_fd_);
-            return;
-        }
-        cfsetospeed(&tty, baud_rate);
-        cfsetispeed(&tty, baud_rate);
-        tty.c_cflag |= (CLOCAL | CREAD);
-        tty.c_cflag &= ~PARENB;
-        tty.c_cflag &= ~CSTOPB;
-        tty.c_cflag &= ~CSIZE;
-        tty.c_cflag |= CS8;
-        tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-        tty.c_oflag &= ~OPOST;
-        tty.c_cc[VMIN] = 0;  // Non-blocking read
-        tty.c_cc[VTIME] = 0; // Timeout in deciseconds for non-blocking read
-        if (tcsetattr(serial_fd_, TCSANOW, &tty) != 0) {
-            std::cerr << "Error in tcsetattr" << std::endl;
-            close(serial_fd_);
-            return;
-        }
+        serial_port.Open();
+        serial_port.SetBaudRate(baud_rate);
+        serial_port.SetCharacterSize(LibSerial::SerialPort::CharacterSize::CHAR_SIZE_8);
+        serial_port.SetParity(LibSerial::SerialPort::Parity::PARITY_NONE);
+        serial_port.SetStopBits(LibSerial::SerialPort::StopBits::STOP_BITS_1);
 
         publisher_ = this->create_publisher<std_msgs::msg::String>("uwb_data", 10);
 
-        // Start serial read thread
-        serial_thread_ = std::thread(&UWBPublisher::serialReadThread, this);
-    }
-
-    ~UWBPublisher() {
-        // Stop serial read thread
-        thread_stop_ = true;
-        if (serial_thread_.joinable())
-            serial_thread_.join();
-
-        // Close serial port
-        if (serial_fd_ != -1)
-            close(serial_fd_);
+        // Start asynchronous read
+        startAsyncRead();
     }
 
 private:
-    void serialReadThread() {
-        char buffer[1024];
-        while (!thread_stop_) {
-            int bytes_available;
-            ioctl(serial_fd_, FIONREAD, &bytes_available);
-            if (bytes_available > 0) {
-                ssize_t bytes_read = read(serial_fd_, buffer, sizeof(buffer));
-                if (bytes_read > 0) {
-                    std_msgs::msg::String msg;
-                    std::string raw_message(buffer, bytes_read);
-                    std::string cleaned_message;
-                    for (char c : raw_message) {
-                        if (c != ' ' && c != '\r' && c != '\n') {
-                            cleaned_message += c;
-                        }
-                    }
-                    msg.data = cleaned_message;
-                    if (msg.data.size() ==)
-                        publisher_->publish(msg);
-                }
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
+    void startAsyncRead() {
+        serial_port.SetCallback(readCallback, this);
+        serial_port.StartReading();
     }
 
+    static void readCallback(LibSerial::SerialPort& serial_port, char* buffer, size_t size, void* user_data) {
+        UWBPublisher* publisher = static_cast<UWBPublisher*>(user_data);
+        std_msgs::msg::String msg;
+        msg.data = std::string(buffer, size);
+
+        // Remove spaces, carriage returns, and newlines from msg.data
+        msg.data.erase(std::remove_if(msg.data.begin(), msg.data.end(), [](char c) {
+            return c == ' ' || c == '\r' || c == '\n';
+        }), msg.data.end());
+        if (msg.data != "" && msg.data.size() <= 20)
+            publisher->publisher_->publish(msg);
+    }
+
+    LibSerial::SerialPort serial_port;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
-    int serial_fd_;
-    std::thread serial_thread_;
-    std::atomic<bool> thread_stop_;
 };
 
 int main(int argc, char** argv) {
