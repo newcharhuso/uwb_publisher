@@ -10,7 +10,7 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/string_stamped.hpp"
+#include <std_msgs/msg/string.hpp>
 
 class UWBPublisher : public rclcpp::Node {
 public:
@@ -53,7 +53,7 @@ public:
             return;
         }
 
-        publisher_ = this->create_publisher<std_msgs::msg::StringStamped>("uwb_data", 10); // Change publisher type
+        publisher_ = this->create_publisher<std_msgs::msg::String>("uwb_data", 10);
 
         // Start serial read thread
         serial_thread_ = std::thread(&UWBPublisher::serialReadThread, this);
@@ -79,7 +79,7 @@ private:
             if (bytes_available > 0) {
                 ssize_t bytes_read = read(serial_fd_, buffer, sizeof(buffer));
                 if (bytes_read > 0) {
-                    std_msgs::msg::StringStamped msg; // Change message type
+                    std_msgs::msg::String msg;
                     std::string raw_message(buffer, bytes_read);
                     std::string cleaned_message;
                     for (char c : raw_message) {
@@ -88,8 +88,7 @@ private:
                         }
                     }
                     msg.data = cleaned_message;
-                    msg.header.stamp = this->now(); // Assign timestamp
-                    if (msg.data.size() == 14)
+                    if (msg.data.size() ==)
                         publisher_->publish(msg);
                 }
             }
@@ -97,7 +96,7 @@ private:
         }
     }
 
-    rclcpp::Publisher<std_msgs::msg::StringStamped>::SharedPtr publisher_; // Change publisher type
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
     int serial_fd_;
     std::thread serial_thread_;
     std::atomic<bool> thread_stop_;
