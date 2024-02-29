@@ -13,30 +13,20 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     # Node declaration
 
-    arguments = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution(
-                [
-                    FindPackageShare("robot_bringup"),
-                    "launch",
-                    "arguments.launch.py",
-                ]
-            )
-        )
-    )
+
 
 
     launch_group = GroupAction(
         [
             Node(
-                package="robot_node",
-                executable="robot_node",
+                package="uwb_publisher",
+                executable="uwb_publisher_node",
                 namespace=LaunchConfiguration("prefix"),
                 output="screen",
                 respawn=True,
                 respawn_delay=1.0,
                 parameters=[
-                    {"prefix": LaunchConfiguration("prefix")},
+                    {"prefix": "SR2T1"},
                     {"serial_port": "/dev/ttyUSB0"},
                     {"baud_rate": 115200},
                 ],
@@ -50,6 +40,5 @@ def generate_launch_description():
 
     # LaunchDescription
     ld = LaunchDescription()
-    ld.add_action(arguments)
     ld.add_action(launch_group)
     return ld
