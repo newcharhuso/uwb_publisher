@@ -21,12 +21,11 @@ def generate_launch_description():
             Node(
                 package="uwb_publisher",
                 executable="uwb_publisher_node",
-                namespace=LaunchConfiguration("prefix"),
+                namespace="SR2T1",
                 output="screen",
                 respawn=True,
                 respawn_delay=1.0,
                 parameters=[
-                    {"prefix": "SR2T1"},
                     {"serial_port": "/dev/ttyUSB0"},
                     {"baud_rate": 115200},
                 ],
