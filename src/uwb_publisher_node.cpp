@@ -82,8 +82,8 @@ private:
                 std::string data(buffer, bytes_read);
 
                 // Remove first 5 and last 4 characters
-                if (data.size() >= 9) {
-                    data = data.substr(5, data.size() - 9);
+                if (data.size() >= 19) {
+                    data = data.substr(5, data.size() - 19);
                     std_msgs::msg::String msg;
                     msg.data = data;
                     publisher_->publish(msg);
