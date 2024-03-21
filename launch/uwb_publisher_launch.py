@@ -21,7 +21,7 @@ def generate_launch_description():
             Node(
                 package="uwb_publisher",
                 executable="uwb_publisher_node",
-                namespace="SR4T1",
+                namespace="SR4S1",
                 output="screen",
                 respawn=True,
                 respawn_delay=1.0,
