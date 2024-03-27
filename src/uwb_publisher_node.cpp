@@ -10,7 +10,7 @@
 #include <deque>
 #include <numeric> // for std::accumulate
 #include "rclcpp/rclcpp.hpp"
-#include <std_msgs/msg/int32.hpp>
+#include <std_msgs/msg/string.hpp>
 
 class UWBPublisher : public rclcpp::Node {
 public:
@@ -51,7 +51,7 @@ public:
             return;
         }
 
-        publisher_ = this->create_publisher<std_msgs::msg::Int32>("uwb_data", 10);
+        publisher_ = this->create_publisher<std_msgs::msg::String>("uwb_data", 10);
 
         serial_thread_ = std::thread(&UWBPublisher::serialReadThread, this);
     }
@@ -90,8 +90,11 @@ private:
 
                         int sum = std::accumulate(range_values.begin(), range_values.end(), 0);
                         int average_range = range_values.size() > 0 ? sum / range_values.size() : 0;
+                        
+                        char buffer[100];
+                        snprintf(bufferi sizeof(buffer), "%04d%05d%04d", id, average_range, rx_power);
 
-                        std_msgs::msg::Int32 msg;
+                        std_msgs::msg::String msg;
                         msg.data = average_range;        
                         publisher_->publish(msg);
                     }
@@ -101,7 +104,7 @@ private:
         }
     }
 
-    rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr publisher_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
     int serial_fd_;
     std::thread serial_thread_;
     std::atomic<bool> thread_stop_;
