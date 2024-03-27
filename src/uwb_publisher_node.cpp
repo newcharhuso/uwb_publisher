@@ -81,7 +81,7 @@ private:
                     if (data.size() == 13) {
                         int id = std::stoi(data.substr(0, 4));
                         int range = std::stoi(data.substr(4, 5));
-                        İNT rx_power = std::stoi(data.substr(9, 4));    
+                        int rx_power = std::stoi(data.substr(9, 4));    
 
                         range_values.push_back(range);
                         if (range_values.size() > filter_size) {
