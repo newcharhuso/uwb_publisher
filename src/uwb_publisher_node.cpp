@@ -69,7 +69,7 @@ private:
     void serialReadThread() {
         char buffer[1024];
         std::deque<int> range_values;
-        const size_t filter_size = 15;
+        const size_t filter_size = 8;
 
         while (!thread_stop_) {
             int bytes_available;
@@ -78,7 +78,7 @@ private:
                 ssize_t bytes_read = read(serial_fd_, buffer, sizeof(buffer));
                 if (bytes_read > 0) {
                     std::string data(buffer, bytes_read);
-                    if (data.size() == 13) {
+                    if (data.size() == 15) {
                         int id = std::stoi(data.substr(0, 4));
                         int range = std::stoi(data.substr(4, 5));
                         int rx_power = std::stoi(data.substr(9, 4));    
