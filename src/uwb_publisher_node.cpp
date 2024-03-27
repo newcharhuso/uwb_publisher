@@ -92,7 +92,7 @@ private:
                         int average_range = range_values.size() > 0 ? sum / range_values.size() : 0;
                         
                         char buffer[100];
-                        snprintf(bufferi sizeof(buffer), "%04d%05d%04d", id, average_range, rx_power);
+                        snprintf(buffer, sizeof(buffer), "%04d%05d%04d", id, average_range, rx_power);
 
                         std_msgs::msg::String msg;
                         msg.data = average_range;        
