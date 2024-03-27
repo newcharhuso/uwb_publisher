@@ -7,10 +7,10 @@
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
-#include <sys/select.h>
-#include <sys/time.h>
+#include <deque>
+#include <numeric> // for std::accumulate
 #include "rclcpp/rclcpp.hpp"
-#include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/int32.hpp>
 
 class UWBPublisher : public rclcpp::Node {
 public:
@@ -21,14 +21,12 @@ public:
         std::string serial_port = this->get_parameter("serial_port").as_string();
         int baud_rate = this->get_parameter("baud_rate").as_int();
 
-        // Open serial port
         serial_fd_ = open(serial_port.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
         if (serial_fd_ == -1) {
             std::cerr << "Failed to open serial port" << std::endl;
             return;
         }
 
-        // Configure serial port
         struct termios tty;
         memset(&tty, 0, sizeof(tty));
         if (tcgetattr(serial_fd_, &tty) != 0) {
@@ -45,56 +43,65 @@ public:
         tty.c_cflag |= CS8;
         tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
         tty.c_oflag &= ~OPOST;
-        tty.c_cc[VMIN] = 0;  // Non-blocking read
-        tty.c_cc[VTIME] = 0; // Timeout in deciseconds for non-blocking read
+        tty.c_cc[VMIN] = 0;
+        tty.c_cc[VTIME] = 0;
         if (tcsetattr(serial_fd_, TCSANOW, &tty) != 0) {
             std::cerr << "Error in tcsetattr" << std::endl;
             close(serial_fd_);
             return;
         }
 
-        publisher_ = this->create_publisher<std_msgs::msg::String>("uwb_data", 10);
+        publisher_ = this->create_publisher<std_msgs::msg::Int32>("uwb_data", 10);
 
-        // Start serial read thread
         serial_thread_ = std::thread(&UWBPublisher::serialReadThread, this);
     }
 
     ~UWBPublisher() {
-        // Stop serial read thread
         thread_stop_ = true;
         if (serial_thread_.joinable())
             serial_thread_.join();
 
-        // Close serial port
         if (serial_fd_ != -1)
             close(serial_fd_);
     }
 
 private:
     void serialReadThread() {
-    char buffer[1024];
-    while (!thread_stop_) {
-        int bytes_available;
-        ioctl(serial_fd_, FIONREAD, &bytes_available);
-        if (bytes_available > 0) {
-            ssize_t bytes_read = read(serial_fd_, buffer, sizeof(buffer));
-            if (bytes_read > 0) {
-                std::string data(buffer, bytes_read);
+        char buffer[1024];
+        std::deque<int> range_values;
+        const size_t filter_size = 15;
 
-                // Remove first 5 and last 4 characters
-                if (data.size() >= 19) {
-                    data = data.substr(5, data.size() - 19);
-                    std_msgs::msg::String msg;
-                    msg.data = data;
-                    publisher_->publish(msg);
+        while (!thread_stop_) {
+            int bytes_available;
+            ioctl(serial_fd_, FIONREAD, &bytes_available);
+            if (bytes_available > 0) {
+                ssize_t bytes_read = read(serial_fd_, buffer, sizeof(buffer));
+                if (bytes_read > 0) {
+                    std::string data(buffer, bytes_read);
+                    if (data.size() == 13) {
+                        int id = std::stoi(data.substr(0, 4));
+                        int range = std::stoi(data.substr(4, 5));
+                        İNT rx_power = std::stoi(data.substr(9, 4));    
+
+                        range_values.push_back(range);
+                        if (range_values.size() > filter_size) {
+                            range_values.pop_front();
+                        }
+
+                        int sum = std::accumulate(range_values.begin(), range_values.end(), 0);
+                        int average_range = range_values.size() > 0 ? sum / range_values.size() : 0;
+
+                        std_msgs::msg::Int32 msg;
+                        msg.data = average_range;        
+                        publisher_->publish(msg);
+                    }
                 }
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-}
 
-    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr publisher_;
     int serial_fd_;
     std::thread serial_thread_;
     std::atomic<bool> thread_stop_;
