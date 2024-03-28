@@ -68,8 +68,6 @@ public:
 private:
     void serialReadThread() {
         char buffer[1024];
-        std::deque<int> range_values;
-        const size_t filter_size = 8;
 
         while (!thread_stop_) {
             int bytes_available;
@@ -79,23 +77,8 @@ private:
                 if (bytes_read > 0) {
                     std::string data(buffer, bytes_read);
                     if (data.size() == 15) {
-                        int id = std::stoi(data.substr(0, 4));
-                        int range = std::stoi(data.substr(4, 5));
-                        int rx_power = std::stoi(data.substr(9, 4));    
-
-                        range_values.push_back(range);
-                        if (range_values.size() > filter_size) {
-                            range_values.pop_front();
-                        }
-
-                        int sum = std::accumulate(range_values.begin(), range_values.end(), 0);
-                        int average_range = range_values.size() > 0 ? sum / range_values.size() : 0;
-                        
-                        char msg_merged[100];
-                        snprintf(msg_merged, sizeof(msg_merged), "%04d%05d%04d", id, average_range, rx_power);
-
                         std_msgs::msg::String msg;
-                        msg.data = average_range;        
+                        msg.data = data;        
                         publisher_->publish(msg);
                     }
                 }
