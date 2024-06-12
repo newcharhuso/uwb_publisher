@@ -10,18 +10,16 @@ from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitut
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
+
 def generate_launch_description():
     # Node declaration
-
-
-
 
     launch_group = GroupAction(
         [
             Node(
                 package="uwb_publisher",
                 executable="uwb_publisher_node",
-                namespace="SR4S1",
+                namespace="SR2T1",
                 output="screen",
                 respawn=True,
                 respawn_delay=1.0,
