@@ -54,8 +54,12 @@ public:
     tty.c_oflag &= ~OPOST;              // Raw output mode
     tty.c_iflag &= ~(IXON | IXOFF | IXANY); // Disable software flow control
 
-    tty.c_cc[VMIN] = 0;                 // Non-blocking read
-    tty.c_cc[VTIME] = 0;                // No read timeout
+    tty.c_iflag &= ~(INLCR | ICRNL);    // Disable NL to CR translation
+    tty.c_iflag &= ~(IGNCR);            // Disable ignore CR
+    tty.c_oflag &= ~(ONLCR | OCRNL);    // Disable NL to CR translation
+
+    tty.c_cc[VMIN] = 1;                 // Blocking read until 1 character arrives
+    tty.c_cc[VTIME] = 5;                // 0.5 seconds read timeout
 
     if (tcsetattr(serial_fd_, TCSANOW, &tty) != 0) {
       RCLCPP_ERROR(this->get_logger(), "Error in tcsetattr");
@@ -63,6 +67,9 @@ public:
       rclcpp::shutdown();
       return;
     }
+
+    // Clear any pending data
+    tcflush(serial_fd_, TCIOFLUSH);
 
     publisher_ = this->create_publisher<std_msgs::msg::String>("uwb_data", 10);
 
