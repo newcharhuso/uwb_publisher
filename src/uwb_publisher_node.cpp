@@ -25,15 +25,16 @@ public:
 
     serial_fd_ = open(serial_port.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (serial_fd_ == -1) {
-      std::cerr << "Failed to open serial port" << std::endl;
+      RCLCPP_ERROR(this->get_logger(), "Failed to open serial port");
+      rclcpp::shutdown();
       return;
     }
-
     struct termios tty;
     memset(&tty, 0, sizeof(tty));
     if (tcgetattr(serial_fd_, &tty) != 0) {
-      std::cerr << "Error in tcgetattr" << std::endl;
+      RCLCPP_ERROR(this->get_logger(), "Error in tcgetattr");
       close(serial_fd_);
+      rclcpp::shutdown();
       return;
     }
     cfsetospeed(&tty, baud_rate);
@@ -48,8 +49,9 @@ public:
     tty.c_cc[VMIN] = 0;
     tty.c_cc[VTIME] = 0;
     if (tcsetattr(serial_fd_, TCSANOW, &tty) != 0) {
-      std::cerr << "Error in tcsetattr" << std::endl;
+      RCLCPP_ERROR(this->get_logger(), "Error in tcsetattr");
       close(serial_fd_);
+      rclcpp::shutdown();
       return;
     }
 
