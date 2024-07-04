@@ -31,7 +31,12 @@ public:
     }
 
     // Flush the serial port buffers
-    tcflush(serial_fd_, TCIOFLUSH);
+    if (tcflush(serial_fd_, TCIOFLUSH) != 0) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to flush serial port buffers");
+      close(serial_fd_);
+      rclcpp::shutdown();
+      return;
+    }
 
     struct termios tty;
     memset(&tty, 0, sizeof(tty));
@@ -69,7 +74,12 @@ public:
     }
 
     // Clear any pending data
-    tcflush(serial_fd_, TCIOFLUSH);
+    if (tcflush(serial_fd_, TCIOFLUSH) != 0) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to flush serial port buffers after setting attributes");
+      close(serial_fd_);
+      rclcpp::shutdown();
+      return;
+    }
 
     publisher_ = this->create_publisher<std_msgs::msg::String>("uwb_data", 10);
 
