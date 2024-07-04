@@ -29,6 +29,10 @@ public:
       rclcpp::shutdown();
       return;
     }
+
+    // Flush the serial port buffers
+    tcflush(serial_fd_, TCIOFLUSH);
+
     struct termios tty;
     memset(&tty, 0, sizeof(tty));
     if (tcgetattr(serial_fd_, &tty) != 0) {
@@ -37,17 +41,22 @@ public:
       rclcpp::shutdown();
       return;
     }
+
     cfsetospeed(&tty, baud_rate);
     cfsetispeed(&tty, baud_rate);
-    tty.c_cflag |= (CLOCAL | CREAD);
-    tty.c_cflag &= ~PARENB;
-    tty.c_cflag &= ~CSTOPB;
-    tty.c_cflag &= ~CSIZE;
-    tty.c_cflag |= CS8;
-    tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-    tty.c_oflag &= ~OPOST;
-    tty.c_cc[VMIN] = 0;
-    tty.c_cc[VTIME] = 0;
+
+    tty.c_cflag |= (CLOCAL | CREAD);    // Enable the receiver and set local mode
+    tty.c_cflag &= ~PARENB;             // No parity bit
+    tty.c_cflag &= ~CSTOPB;             // 1 stop bit
+    tty.c_cflag &= ~CSIZE;              // Mask the character size bits
+    tty.c_cflag |= CS8;                 // 8 data bits
+    tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // Raw input mode
+    tty.c_oflag &= ~OPOST;              // Raw output mode
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY); // Disable software flow control
+
+    tty.c_cc[VMIN] = 0;                 // Non-blocking read
+    tty.c_cc[VTIME] = 0;                // No read timeout
+
     if (tcsetattr(serial_fd_, TCSANOW, &tty) != 0) {
       RCLCPP_ERROR(this->get_logger(), "Error in tcsetattr");
       close(serial_fd_);
